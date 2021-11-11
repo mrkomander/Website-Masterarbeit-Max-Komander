@@ -1,7 +1,6 @@
-Ordner in C:/xampp
+htdocs und mysql Ordner in C:\xampp integrieren
 
+Apache und MySQL über XAMPP starten
 
-
-
-Aufrufen im Browser:
+Webseite im Browser aufrufen:
 http://localhost/corona/index.html
