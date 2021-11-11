@@ -1,1 +1,7 @@
 Ordner in C:/xampp
+
+
+
+
+Aufrufen im Browser:
+http://localhost/corona/index.html
