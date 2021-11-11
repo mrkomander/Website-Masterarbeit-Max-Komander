@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>Besucher Auslastung</title>
+  
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+</head>
+<body>
+ <div class="topnav">
+	<a href="index.html" >Home</a>
+	<a href="barcode.html" >QR Code</a>
+	<a class="active" href="admin.html">Admin</a>
+ </div>
+
+<table style="width:100%">
+	<tr>
+		<td colspan="3"><div id='mainTitleTD'><p id='mainTitle'>Name der Einrichtung</p></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='establishmentTD'><input type="text" id="establishment" onkeyup="changeName()"></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='spacer'></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='mainTitleTD'><p id='mainTitle'>Maximale Obergrenze</p></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='establishmentTD'><input type="number" id="limit" onkeyup="changeSeats()"></div></td>
+	</tr>	  
+	<tr>
+		<td colspan="3"><div id='spacer'></div></td>
+	</tr>	
+	<tr>
+		<td colspan="3"><div id='guestsTD'><p id='mainTitle'>Aktueller Wert</p></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='guestsTD'><p id='guests'></p></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='buttonSpace'></div></td>
+	</tr>	
+	<tr>
+		<audio id="audio1" src="jarjar.mp3"></audio>
+		<td width="45%"><div id='buttonsTD'><button type="button" id='plus' onclick='add()'>+</button></div></td>
+		<audio id="audio3" src="wooky.mp3"></audio>
+		<td width="10%"><div id='buttonsTD'><button type="button" id='reset' onclick='reset()'>Reset</button></div></td>
+		<audio id="audio2" src="jarjar2.mp3"></audio>
+		<td width="45%"><div id='buttonsTD'><button type="button" id='minus' onclick='subtract()'>-</button></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='spacer'></div></td>
+	</tr>	
+	<tr>
+		<td colspan="3"><div id='mainTitleTD'><p id='mainTitle'>Mitteilung für Gäste</p></div></td>
+	</tr>
+	<tr>
+		<td colspan="3"><div id='establishmentTD'><input type="text" id="note" onkeyup="changeNote()"></div></td>
+	</tr>
+</table>
+  
+<script src="libs/script.js"></script>
+<script src="libs/d3.v5.min.js"></script>
+<script src="libs/apexcharts.js"></script>
+<script src="libs/jquery.min.js"></script>
+<script>
+	window.onload = function() {
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT NAME as RES FROM establishments"}
+		})
+		.done(function( response ) {
+			document.getElementById('establishment').value = response;
+		});
+		
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT SEATS as RES FROM establishments"}
+		})
+		.done(function( response ) {
+			document.getElementById('limit').value = response;
+		});
+		
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+		})
+		.done(function( response ) {
+			document.getElementById('guests').innerHTML = JSON.parse(response).now + ' / ' + JSON.parse(response).limit;
+		});
+		
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT NOTE as RES FROM establishments"}
+		})
+		.done(function( response ) {
+			document.getElementById('note').value = response;
+		});
+	}
+
+	function changeName(){
+		var name = document.getElementById('establishment').value;
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'changeName', query:"UPDATE establishments SET NAME = '" + name + "'"}
+		})
+		.done(function( response ) {
+			//document.getElementById('establishment').innerHTML = 'Für ' + response;
+		});
+	}
+	
+	function changeSeats(){
+		var name = document.getElementById('limit').value;
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'changeName', query:"UPDATE establishments SET SEATS= " + parseInt(name)}
+		})
+		.done(function( response ) {
+			$.ajax({
+			  method: "POST",
+			  url: "database.php",
+			  data: { type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+			})
+			.done(function( response3 ) {
+				document.getElementById('guests').innerHTML = JSON.parse(response3).now + ' / ' + JSON.parse(response3).limit;
+			});
+		});
+	}
+	
+	function add(){
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT MAX(ID) as RES FROM guests"}
+		})
+		.done(function( response ) {
+			var int_limit = 0, int_now = 0;
+			var limit = document.getElementById('limit').value;
+			var now = document.getElementById('guests').innerText;
+			var now_is = now.substring(0, now.indexOf('/')-1);
+			if(limit != '' && !isNaN(limit))
+				int_limit = parseInt(limit);
+			if(now_is != '' && !isNaN(now_is))
+				int_now = parseInt(now_is);
+			if(int_now < int_limit){
+				$.ajax({
+				  method: "POST",
+				  url: "database.php",
+				  data: { type:'changeName', query:"INSERT INTO guests (ID, CHECKIN_TIME, CHECKOUT_TIME) VALUES ("+(parseInt(response)+1)+", '"+getDateNow()+"', '0000-00-00 00:00:00')"}
+				})
+				.done(function( response2 ) {
+					$.ajax({
+					  method: "POST",
+					  url: "database.php",
+					  data: { type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+					})
+					.done(function( response3 ) {
+						//document.getElementById("audio1").play();
+						document.getElementById('guests').innerHTML = JSON.parse(response3).now + ' / ' + JSON.parse(response3).limit;
+					});
+				});
+			}else
+				alert('Maximale Obergrenze erreicht.');
+		});	
+	}
+	
+	function reset(){
+		//document.getElementById("audio3").play();
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'changeName', query:"UPDATE corona.guests SET CHECKOUT_TIME = '"+getDateNow()+"' WHERE CHECKOUT_TIME = '0000-00-00 00:00:00'"}
+		})
+		.done(function( response2 ) {
+			$.ajax({
+			  method: "POST",
+			  url: "database.php",
+			  data: { type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+			})
+			.done(function( response3 ) {
+				document.getElementById('guests').innerHTML = JSON.parse(response3).now + ' / ' + JSON.parse(response3).limit;
+			});
+		});
+	}
+	
+	function subtract(){
+		//document.getElementById("audio2").play();
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT ID as RES FROM corona.guests where CHECKOUT_TIME = '0000-00-00 00:00:00' AND (USER IS NULL OR USER = '') LIMIT 0,1"}
+		})
+		.done(function( response ) {
+			$.ajax({
+			  method: "POST",
+			  url: "database.php",
+			  data: { type:'changeName', query:"UPDATE corona.guests SET CHECKOUT_TIME = '"+getDateNow()+"' WHERE ID = " + parseInt(response)}
+			})
+			.done(function( response2 ) {
+				$.ajax({
+				  method: "POST",
+				  url: "database.php",
+				  data: { type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+				})
+				.done(function( response3 ) {
+					document.getElementById('guests').innerHTML = JSON.parse(response3).now + ' / ' + JSON.parse(response3).limit;
+				});
+			});
+		});				
+	}
+	
+	function changeNote(){
+		var name = document.getElementById('note').value;
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'changeName', query:"UPDATE establishments SET NOTE = '" + name + "'"}
+		})
+		.done(function( response ) {
+			//document.getElementById('establishment').innerHTML = 'Für ' + response;
+		});
+	}
+	
+	function getDateNow(){
+		var date = new Date();
+		date = date.getFullYear() + '-' +
+		pad(date.getMonth() + 1)  + '-' +
+		pad(date.getDate())       + ' ' +
+		pad(date.getHours())      + ':' +
+		pad(date.getMinutes())    + ':' +
+		pad(date.getSeconds());
+		return date;
+	}
+	
+	function pad(num) { 
+		return ('00'+num).slice(-2);
+	}
+	</script>
+</body>
+</html>	
+	
+<style>
+body {
+	cursor:url(cursor.png), auto;
+	background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+	background-size: 8000% 8000%;
+	animation: gradient 50s ease infinite;
+	background: #CACACA;
+}
+/*
+@keyframes gradient {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+*/
+
+.topnav {
+  background-color: #333;
+  overflow: hidden;
+}
+.topnav a {
+  float: left;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+.topnav a:hover {
+  cursor: pointer;
+  background-color: #ddd;
+  color: black;
+}
+.topnav a.active {
+  background-color: #80cbc4;
+  color: white;
+}
+
+text {
+    font-size: 2rem;
+    background: linear-gradient(to right, #c70039, #ff5733 70%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#mainTitleTD{
+	height: 60px;
+}
+#mainTitle {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 38px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 3px #000000;
+  font-family: Sans-serif;
+}
+
+#spacer{
+	height: 20px;
+}
+
+#establishmentTD{
+	height: 10px;
+}
+#establishment {
+  display: block;
+  margin : 0 auto;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+  width: 380px;
+  border-color: #333;
+  background: #6f6666;
+}
+#limit {
+  display: block;
+  margin : 0 auto;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+  width: 80px;
+  border-color: #333;
+  background: #6f6666;
+}
+
+#guestsTD{
+	height: 30px;
+}
+#guests {
+  text-align: center;
+  vertical-align: middle;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 30px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 3px #000000;
+  font-family: Sans-serif;
+}
+#buttonSpace{
+	height: 20px;
+}
+#plus {
+  float: right;
+  display: block;
+  margin: 0 auto;
+  font-size: 30px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 3px #000000;
+  font-family: Sans-serif;
+  width: 50px;
+  cursor: pointer;
+  background: #009018;
+  vertical-align: middle;
+}
+#minus {
+  float: left;
+  display: block;
+  margin: 0 auto;
+  font-size: 30px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 3px #000000;
+  font-family: Sans-serif;
+  width: 50px;
+  cursor: pointer;
+  background: #980000;
+  vertical-align: middle;
+}
+#reset{
+  display: block;
+  margin: 0 auto;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 3px #000000;
+  font-family: Sans-serif;
+  width: 80px;
+  cursor: pointer;
+  height: 35px;
+  background: #737373;
+}
+#buttonsTD{
+	height: 20px;
+}
+
+#note {
+  display: block;
+  margin : 0 auto;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+  width: 380px;
+  border-color: #333;
+  background: #6f6666;
+}
+</style>	

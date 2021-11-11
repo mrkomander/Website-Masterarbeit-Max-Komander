@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>Besucher Auslastung</title>
+  
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+</head>
+<body>
+ <div class="topnav">
+	<a class="active" href="index.html" >Home</a>
+	<a href="barcode.html" >QR Code</a>
+	<a href="admin.html" >Admin</a>
+ </div>
+<table style="width:100%">
+	<tr>
+		<td><div id='mainTitleTD'><p id='mainTitle'>Besucherzahlenerfassung</p></div></td>
+	</tr>
+	<tr>
+		<td><div id='establishmentTD'><p id='establishment'>Für </p></div></td>
+	</tr>
+	<tr>
+		<td><div id='dateTimeTD'><p id='dateTime'>Stand: </p></div></td>
+	</tr>
+	<tr>
+		<td><div id='chart'></div></td>
+	</tr>	  
+	<tr>
+		<td><div id='noteTD'><p id='note'>Mitteilung: </p></div></td>
+	</tr>	
+</table>
+  
+<script src="libs/script.js"></script>
+<script src="libs/d3.v5.min.js"></script>
+<script src="libs/apexcharts.js"></script>
+<script src="libs/jquery.min.js"></script>
+<script>
+var max = 0;
+        var options = {
+          series: [0],
+          chart: {
+          height: 550,
+          type: 'radialBar',
+          toolbar: {
+            show: false
+          }
+        },
+        plotOptions: {
+          radialBar: {
+            startAngle: -135,
+            endAngle: 225,
+             hollow: {
+              margin: 0,
+              size: '70%',
+              background: '#333',
+              image: undefined,
+              imageOffsetX: 0,
+              imageOffsetY: 0,
+              position: 'front',
+              dropShadow: {
+                enabled: true,
+                top: 3,
+                left: 0,
+                blur: 4,
+                opacity: 0.24
+              }
+            },
+            track: {
+              background: '#333',
+              strokeWidth: '67%',
+              margin: 0, // margin is in pixels
+              dropShadow: {
+                enabled: true,
+                top: -3,
+                left: 0,
+                blur: 4,
+                opacity: 0.35
+              }
+            },
+        
+            dataLabels: {
+              show: true,
+              name: {
+                offsetY: -10,
+                show: true,
+                color: '#92a09e',
+                fontSize: '17px'
+              },
+              value: {
+                formatter: function(val) {
+                  return (val/100*max) + '/' + max;
+                },
+                color: '#6c7573',
+                fontSize: '36px',
+                show: true,
+              },
+				dropShadow: {
+				  enabled: true,
+				  top: 2,
+				  left: 2,
+				  blur: 2,
+				  color: '#fff',
+				  opacity: 0.6
+			  }
+            }
+          }
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shade: 'dark',
+            type: 'horizontal',
+            shadeIntensity: 0.5,
+            gradientToColors: ['#ABE5A1'],
+            inverseColors: true,
+            opacityFrom: 1,
+            opacityTo: 1,
+            stops: [0, 100]
+          }
+        },
+        stroke: {
+          lineCap: 'round'
+        },
+        labels: ['Auslastung'],
+        };
+
+        var chart = new ApexCharts(document.querySelector("#chart"), options);
+        chart.render();
+		
+		setInterval('update();',100); 
+		
+	function update(){
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT NAME as RES FROM establishments"}
+		})
+		.done(function( response ) {
+			document.getElementById('establishment').innerHTML = 'Für ' + response;
+		});
+	
+		document.getElementById('dateTime').innerHTML = 'Stand: ' + currentDate() + ' / ' + currentTime();
+	
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: {type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+		})
+		.done(function( response ) {
+			max = parseInt(new String(JSON.parse(response).limit));
+			var now = parseInt(new String(JSON.parse(response).now).replace('\t',''));
+			chart.updateSeries([now*100/max]);
+			chart.updateOptions({dataLabels: {
+              show: true,
+              name: {
+                offsetY: -10,
+                show: true,
+                color: '#92a09e',
+                fontSize: '17px'
+              },
+              value: {
+                formatter: function(val) {
+                  return now + '/' + max;
+                },
+                color: '#6c7573',
+                fontSize: '36px',
+                show: true,
+              },
+				dropShadow: {
+				  enabled: true,
+				  top: 2,
+				  left: 2,
+				  blur: 2,
+				  color: '#fff',
+				  opacity: 0.6
+			  }
+            }});
+		});
+		
+		$.ajax({
+		  method: "POST",
+		  url: "database.php",
+		  data: { type:'establishment', query:"SELECT NOTE as RES FROM establishments"}
+		})
+		.done(function( response ) {
+			document.getElementById('note').innerHTML = 'Mitteilung: ' + response;
+		});
+	}
+	
+	function currentDate(){
+		var date;
+		date = new Date();
+		date = pad(date.getDate()) + '.' + pad(date.getMonth() + 1) + '.' + date.getFullYear();
+		return date;
+	}
+	
+	function currentTime(){
+		var date;
+		date = new Date();
+		date = pad(date.getHours()) + ':' + pad(date.getMinutes());
+		return date;
+	}
+		
+	function pad(num) { return ('00'+num).slice(-2) };	
+	</script>
+</body>
+</html>	
+	
+<style>
+body {
+	cursor:url(cursor.png), auto;
+	background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+	background-size: 8000% 8000%;
+	animation: gradient 50s ease infinite;
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+body {
+    background: #CACACA;
+}
+
+.topnav {
+  background-color: #333;
+  overflow: hidden;
+}
+.topnav a {
+  float: left;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+.topnav a:hover {
+  cursor: pointer;
+  background-color: #ddd;
+  color: black;
+}
+.topnav a.active {
+  background-color: #80cbc4;
+  color: white;
+}
+
+text {
+    font-size: 2rem;
+    background: linear-gradient(to right, #c70039, #ff5733 70%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.outer {
+  display: table;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  height: 90%;
+  width: 100%;
+}
+
+div#layout {
+  height: 100%;
+  width: 100%;
+  display: table-cell;
+  vertical-align: middle;
+}
+
+
+#mainTitleTD{
+	max-height: 30px;
+}
+#mainTitle {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 40px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 2px 2px 4px #000000;
+  font-family: Sans-serif;
+}
+
+#establishmentTD{
+	height: 30px;
+}
+#establishment {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 25px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+}
+
+#dateTimeTD{
+	height: 10px;
+}
+#dateTime {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+}
+
+#noteTD{
+	max-height: 10px;
+}
+#note {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 2px #000000;
+  font-family: Sans-serif;
+}
+</style>	

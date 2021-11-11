@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>QR Code Scan</title>
+  <script src="libs/html5-qrcode.min.js"></script>
+  <link href="libs/family=Open+Sans.css" rel="stylesheet">
+  <script src="libs/d3.v5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+</head>
+<body>
+ <div class="topnav">
+	<a href="index.html">Home</a>
+	<a class="active" href="#barcode">QR Code</a>
+	<a href="admin.html">Admin</a>
+ </div>
+<table style="width:100%">
+	<tr>
+		<td>
+			<div id="scanner-container"></div>
+			<button id='scanBtn' type="button" onclick="showScanner()">Show QR code scanner</button>
+			<video id="preview" hidden></video>
+		</td>
+	</tr>
+</table>	
+<script>
+	function showScanner(){
+		document.getElementById('scanBtn').hidden = true;
+		document.getElementById('preview').hidden = false;
+		  let scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+  scanner.addListener('scan', function (content) {
+	$.ajax({
+	  method: "POST",
+	  url: "database.php",
+	  data: { type:'establishment', query:"SELECT ID as RES FROM guests WHERE USER = '"+content+"' AND CHECKOUT_TIME = '0000-00-00 00:00:00' LIMIT 1"}
+	})
+	.done(function(response) {
+		if(response == ''){ //create entry
+			$.ajax({
+			  method: "POST",
+			  url: "database.php",
+			  data: {type:'admin', query:"SELECT (SELECT COUNT(ID) FROM guests WHERE CHECKOUT_TIME = '0000-00-00 00:00:00') AS RES, (SELECT SEATS FROM establishments) AS SEATS FROM DUAL"}
+			})
+			.done(function(response1) {
+				var int_limit = 0, int_now = 0;
+				var limit = JSON.parse(response1).limit;
+				var now = JSON.parse(response1).now;
+				if(limit != '' && !isNaN(limit))
+					int_limit = parseInt(limit);
+				if(now != '' && !isNaN(now))
+					int_now = parseInt(now);
+				if(int_now < int_limit){
+					$.ajax({
+					  method: "POST",
+					  url: "database.php",
+					  data: { type:'establishment', query:"SELECT MAX(ID) as RES FROM guests"}
+					})
+					.done(function(newId) {
+						$.ajax({
+						  method: "POST",
+						  url: "database.php",
+						  data: { type:'changeName', query:"INSERT INTO guests (ID, CHECKIN_TIME, CHECKOUT_TIME, USER) VALUES ("+(parseInt(newId)+1)+", '"+getDateNow()+"', '0000-00-00 00:00:00', '"+content+"')"}
+						})
+						.done(function( response2 ) {
+							alert('Check-in user "' + content + '" successful.');
+							scanner.stop();
+							document.getElementById('scanBtn').hidden = false;
+						});
+					});
+				}else
+					alert('Maximale Obergrenze erreicht.');
+					scanner.stop();
+					document.getElementById('scanBtn').hidden = false;
+			});	
+		}else{ //update entry
+			$.ajax({
+			  method: "POST",
+			  url: "database.php",
+			  data: { type:'changeName', query:"UPDATE corona.guests SET CHECKOUT_TIME = '"+getDateNow()+"' WHERE ID = " + parseInt(response)}
+			})
+			.done(function(res) {
+				alert('Check-out user "' + content + '" successful.');
+				scanner.stop();
+				document.getElementById('scanBtn').hidden = false;
+			});
+		}
+	});	
+  });
+  Instascan.Camera.getCameras().then(function (cameras) {
+	if (cameras.length > 0) {
+	  scanner.start(cameras[0]);
+	} else {
+	  alert('No cameras found.');
+	}
+  }).catch(function (e) {
+	alert(e);
+  });
+	}
+  
+	function getDateNow(){
+		var date = new Date();
+		date = date.getFullYear() + '-' +
+		pad(date.getMonth() + 1)  + '-' +
+		pad(date.getDate())       + ' ' +
+		pad(date.getHours())      + ':' +
+		pad(date.getMinutes())    + ':' +
+		pad(date.getSeconds());
+		return date;
+	}
+
+	function pad(num) { 
+		return ('00'+num).slice(-2);
+	}
+</script>
+</body>
+</html>	
+	
+<style>
+body {
+    background: #CACACAh;
+}
+
+.topnav {
+  background-color: #333;
+  overflow: hidden;
+}
+.topnav a {
+  float: left;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+.topnav a:hover {
+  cursor: pointer;
+  background-color: #ddd;
+  color: black;
+}
+.topnav a.active {
+  background-color: #80cbc4;
+  color: white;
+}
+
+text {
+    font-size: 2rem;
+    background: linear-gradient(to right, #c70039, #ff5733 70%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.outer {
+  display: table;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  height: 90%;
+  width: 100%;
+}
+
+div#layout {
+  height: 100%;
+  width: 100%;
+  display: table-cell;
+  vertical-align: middle;
+}
+
+div#container {
+  max-height: 800px;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+}
+
+.bar {
+  fill: #80cbc4;
+}
+
+text {
+  font-size: 12px;
+  fill: #fff;
+}
+
+path {
+  stroke: gray;
+}
+
+line {
+  stroke: gray;
+}
+
+line#limit {
+  stroke: #FED966;
+  stroke-width: 3;
+  stroke-dasharray: 3 6;
+}
+
+.grid path {
+  stroke-width: 0;
+}
+
+.grid .tick line {
+  stroke: #9FAAAE;
+  stroke-opacity: 0.3;
+}
+
+text.divergence {
+  font-size: 12px;
+  fill: #2F4A6D;
+}
+
+text.value {
+  font-size: 12px;
+}
+
+text.title {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+text.label {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+text.source {
+  font-size: 10px;
+}
+</style>	
